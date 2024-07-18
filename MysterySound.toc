@@ -1,0 +1,6 @@
+## Interface: 40300
+## Title: MysterySound
+## Notes: What should go wrong?
+## Author: Karandin Mikhail
+## Version: 1.0
+MysterySound.lua
