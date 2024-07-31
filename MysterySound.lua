@@ -7,6 +7,12 @@ local soundPlayed = false
 local waitingMode = false
 local playingSound = false
 local currentSoundFolder = nil
+local soundsUnmuted = true  -- Флаг для отслеживания состояния громкости
+
+-- Переменные для хранения исходных настроек громкости
+local originalSFXVolume
+local originalMusicVolume
+local originalAmbienceVolume
 
 -- Папки с мемами
 local soundFolders = {
@@ -14,7 +20,8 @@ local soundFolders = {
     "Interface\\AddOns\\MysterySound\\Sounds\\NeverGonnaGive",
     "Interface\\AddOns\\MysterySound\\Sounds\\Sandstorm",
     "Interface\\AddOns\\MysterySound\\Sounds\\Somebody",
-    "Interface\\AddOns\\MysterySound\\Sounds\\BeforeYouGoGo"
+    "Interface\\AddOns\\MysterySound\\Sounds\\BeforeYouGoGo",
+    "Interface\\AddOns\\MysterySound\\Sounds\\TiCho"
 }
 
 -- Функция для выбора случайной папки
@@ -22,24 +29,47 @@ local function GetRandomSoundFolder()
     return soundFolders[math.random(#soundFolders)]
 end
 
--- Функция для приглушения звуков игры
+-- Функция для приглушения звуков игры и сохранения исходных настроек
 local function MuteGameSounds()
-    SetCVar("Sound_SFXVolume", 0.05)
-    SetCVar("Sound_MusicVolume", 0.05)
-    SetCVar("Sound_AmbienceVolume", 0.05)
+    if soundsUnmuted then
+        originalSFXVolume = tonumber(GetCVar("Sound_SFXVolume"))
+        originalMusicVolume = tonumber(GetCVar("Sound_MusicVolume"))
+        originalAmbienceVolume = tonumber(GetCVar("Sound_AmbienceVolume"))
+
+        if originalSFXVolume > 0.05 then
+            SetCVar("Sound_SFXVolume", 0.05)
+        end
+        if originalMusicVolume > 0.05 then
+            SetCVar("Sound_MusicVolume", 0.05)
+        end
+        if originalAmbienceVolume > 0.05 then
+            SetCVar("Sound_AmbienceVolume", 0.05)
+        end
+        soundsUnmuted = false
+    end
 end
 
--- Функция для плавного восстановления громкости звуков игры
+-- Функция для плавного восстановления исходной громкости звуков игры
 local function GraduallyUnmuteGameSounds()
     local currentVolume = 0.05
     local step = 0.05
     local function IncreaseVolume()
         currentVolume = currentVolume + step
-        SetCVar("Sound_SFXVolume", currentVolume)
-        SetCVar("Sound_MusicVolume", currentVolume)
-        SetCVar("Sound_AmbienceVolume", currentVolume)
-        if currentVolume < 1 then
+
+        if originalSFXVolume > 0.05 and currentVolume <= originalSFXVolume then
+            SetCVar("Sound_SFXVolume", currentVolume)
+        end
+        if originalMusicVolume > 0.05 and currentVolume <= originalMusicVolume then
+            SetCVar("Sound_MusicVolume", currentVolume)
+        end
+        if originalAmbienceVolume > 0.05 and currentVolume <= originalAmbienceVolume then
+            SetCVar("Sound_AmbienceVolume", currentVolume)
+        end
+
+        if currentVolume < math.max(originalSFXVolume, originalMusicVolume, originalAmbienceVolume) then
             C_Timer.After(0.1, IncreaseVolume)
+        else
+            soundsUnmuted = true
         end
     end
     IncreaseVolume()
@@ -53,7 +83,9 @@ end
 -- Функция для воспроизведения финального звукового файла
 local function PlayFinishSound(folder)
     PlaySoundFile(folder .. "\\Finish.ogg", "Master")
-    C_Timer.After(5, GraduallyUnmuteGameSounds)  -- 5 секунд до начала восстановления звуков
+    if not soundsUnmuted then
+        C_Timer.After(5, GraduallyUnmuteGameSounds)  -- 5 секунд до начала восстановления звуков
+    end
 end
 
 -- Функция для воспроизведения первых 3.5 секунд звукового файла
@@ -72,7 +104,9 @@ local function PlayStartSound(folder)
                 waitingMode = false
                 soundPlayed = false
                 currentSoundFolder = nil
-                C_Timer.After(5, GraduallyUnmuteGameSounds)  -- 5 секунд до начала восстановления звуков
+                if not soundsUnmuted then
+                    C_Timer.After(5, GraduallyUnmuteGameSounds)  -- 5 секунд до начала восстановления звуков
+                end
             else
                 waitingMode = true
             end
@@ -101,7 +135,9 @@ local function OnEvent(self, event, ...)
                 waitingMode = false
                 soundPlayed = false
                 currentSoundFolder = nil
-                C_Timer.After(5, GraduallyUnmuteGameSounds)  -- 5 секунд до начала восстановления звуков
+                if not soundsUnmuted then
+                    C_Timer.After(5, GraduallyUnmuteGameSounds)  -- 5 секунд до начала восстановления звуков
+                end
             end
         end
     elseif event == "PLAYER_DEAD" then
@@ -119,7 +155,9 @@ local function OnEvent(self, event, ...)
                 waitingMode = false
                 soundPlayed = false
                 currentSoundFolder = nil
-                C_Timer.After(5, GraduallyUnmuteGameSounds)  -- 5 секунд до начала восстановления звуков
+                if not soundsUnmuted then
+                    C_Timer.After(5, GraduallyUnmuteGameSounds)  -- 5 секунд до начала восстановления звуков
+                end
             end
         end
     end
